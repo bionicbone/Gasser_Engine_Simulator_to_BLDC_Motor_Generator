@@ -7,10 +7,14 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Gasser_Engine_BLDC_Motor", 
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ESP32_ESC_High_Resolution_Driver-0.0.0", "Libraries\ESP32_ESC_High_Resolution_Driver\0.0.0\ESP32_ESC_High_Resolution_Driver\ESP32_ESC_High_Resolution_Driver-0.0.0.vcxitems", "{2A6493F3-CFA3-4EEE-B738-963DFF09DAE8}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PID-1.2.0-1.2.0", "Libraries\PID-1.2.0\1.2.0\PID-1.2.0\PID-1.2.0-1.2.0.vcxitems", "{270DE845-3A93-4980-A619-818B6FBE6FF9}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		Libraries\PID-1.2.0\1.2.0\PID-1.2.0\PID-1.2.0-1.2.0.vcxitems*{270de845-3a93-4980-a619-818b6fbe6ff9}*SharedItemsImports = 9
 		Libraries\ESP32_ESC_High_Resolution_Driver\0.0.0\ESP32_ESC_High_Resolution_Driver\ESP32_ESC_High_Resolution_Driver-0.0.0.vcxitems*{2a6493f3-cfa3-4eee-b738-963dff09dae8}*SharedItemsImports = 9
 		Libraries\ESP32_ESC_High_Resolution_Driver\0.0.0\ESP32_ESC_High_Resolution_Driver\ESP32_ESC_High_Resolution_Driver-0.0.0.vcxitems*{c5f80730-f44f-4478-bdae-6634efc2ca88}*SharedItemsImports = 4
+		Libraries\PID-1.2.0\1.2.0\PID-1.2.0\PID-1.2.0-1.2.0.vcxitems*{c5f80730-f44f-4478-bdae-6634efc2ca88}*SharedItemsImports = 4
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86

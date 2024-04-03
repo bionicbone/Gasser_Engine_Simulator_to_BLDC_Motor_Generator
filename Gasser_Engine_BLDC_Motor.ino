@@ -1,10 +1,14 @@
 /*
  Name:		Gasser_Engine_BLDC_Motor.ino
  Created:	3/31/2024 12:30:36 PM
- Author:	Micro
+ Author:	Kevin Guest (AKA The Bionicbone)
 */
 
+#include <PID_v1.h>
 #include <ESP32_ESC_High_Resolution_Driver.h>
+
+#define PIN_INPUT 0
+#define PIN_OUTPUT 3
 
 ESP32_ESC_HIGH_RESOLUTION_DRIVER ESC_Control = ESP32_ESC_HIGH_RESOLUTION_DRIVER();
 byte ESC_pin = 4;
@@ -29,8 +33,10 @@ void setup()
   Serial.println("Pause for ESC Activation...");
   vTaskDelay(7000);
 
- /* ESC_Control.ESC_calibrate();
-  delay(10000);*/
+ // Uncomment to Calibrate ESC to ESP32_ESC_HIGH_RESOLUTION_DRIVER outputs
+ // then follow instructions on Serial output 
+ // ESC_Control.ESC_calibrate();
+ // while(true);
 
   pinMode(RPM_pin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(RPM_pin), RPM_ISR, RISING);
@@ -38,9 +44,6 @@ void setup()
 }
 
 void loop() {
-  // 0-25% example, limited to 25% because it is not good to spin a motor with zero load at full speed.
-  // Alter as necessary, with caution, watch out for flying propellers or motor cans pulling off the main motor body !!
-  // Ask me how I know, USE WITH CAUTION !!!
 
   ESC_Control.ESC_set_us(1200);  //RPM: 1120 = 5k, 1200 = 10k, 1220 = 11.4k, 1240 = 12.2k 
   if (RPM_counter > 100) {
@@ -52,6 +55,12 @@ void loop() {
     RPM_counter = 0;
     attachInterrupt(digitalPinToInterrupt(RPM_pin), RPM_ISR, RISING);
   }
+  /*
+    Example COde for ESP32_ESC_HIGH_RESOLUTION_DRIVER
+    0-25% example, limited to 25% because it is not good to spin a motor with zero load at full speed.
+    Alter as necessary, with caution, watch out for flying propellers or motor cans pulling off the main motor body !!
+    Ask me how I know, USE WITH CAUTION !!!
+  */
 
 
   //// increment by us for RC ESC for Max Resolution of 1000 steps
