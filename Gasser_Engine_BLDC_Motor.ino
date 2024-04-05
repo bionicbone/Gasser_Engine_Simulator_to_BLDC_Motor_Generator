@@ -4,7 +4,6 @@
  Author:	Kevin Guest (AKA The Bionicbone)
 */
 
-#include <PID_v1.h>
 #include <ESP32_ESC_High_Resolution_Driver.h>
 
 ESP32_ESC_HIGH_RESOLUTION_DRIVER ESC_Control = ESP32_ESC_HIGH_RESOLUTION_DRIVER();
@@ -14,20 +13,26 @@ const byte RPM_pin = 14;
 int RPM_counter = 0;
 unsigned long RPM_timer = 0;
 
-//Define PID control Variables we'll be connecting to
-double PID_setpoint, PID_input, PID_output;
-int PID_mappedOutput = 0;
-//Specify the links and initial tuning parameters
-double Kp = 2, Ki = 5, Kd = 1;
-PID myPID(&PID_input, &PID_output, &PID_setpoint, Kp, Ki, Kd, DIRECT);
+// Governer Setting
+int ESC_us = 1120;        // Spin up value, often to first 100us does nothing
+float GOV_factor = 0.004; // Used to control the us increases
+int GOV_timing_us = 500;  // us between RPM checks and governer changes
+int GOV_RPM = 12000;      // The desired RPM
 
+// Tempertures
+const byte rectifier_TemperaturePin = 34;
+const byte BEC_TemperaturePin = 35;
+const byte protectionDiode_TemperaturePin = 32;
+byte rectifier_Temperature = 0;
+byte BEC_Temperature = 0;
+byte protectionDiode_Temperature = 0;
 
 void setup() {
   Serial.begin(115200);
   while (!Serial && millis() < 5000);
   vTaskDelay(500);
 
-  Serial.println("ESP32_ESC_HIGH_RESOLUTION_DRIVER - Example 0 to 25% Motor RPM \n");
+  Serial.println("Gasser Charging Circuit Tester \n");
 
   // Set up MCPWM
   ESC_Control.ESC_attach(ESC_pin, ESC_Frequency);
@@ -35,7 +40,7 @@ void setup() {
   // Pause to allow the ESC to activate (MUST BE CALIBRATED !!)
   ESC_Control.ESC_set_us(1000);
   Serial.println("Pause for ESC Activation...");
-  vTaskDelay(7000);
+  vTaskDelay(2000);
 
  // Uncomment to Calibrate ESC to ESP32_ESC_HIGH_RESOLUTION_DRIVER outputs
  // then follow instructions on Serial output 
@@ -46,38 +51,42 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(RPM_pin), RPM_ISR, RISING);
   RPM_timer = millis();
 
-  ESC_Control.ESC_set_us(1200);  //RPM: 1120 = 5k, 1200 = 10k, 1220 = 11.4k, 1240 = 12.2k 
-  delay(2000);
+  ESC_Control.ESC_set_us(ESC_us); //RPM (no load): 1120 = 5k, 1200 = 10k, 1220 = 11.4k, 1240 = 12.2k 
+  delay(2000);                    // Give time for the motor to start up before governing to 12,000 RPM              
 
-  //initialize the PID variables we're linked to
-  PID_input = 0;        // 0 because the motor is not yet spinning.
-  PID_setpoint = 200;   // 12000 RPM / 60 = 200 Revolutions per Second
 
-  //turn the PID on
-  myPID.SetMode(AUTOMATIC);
+  // Temperature Pins
+  pinMode(rectifier_TemperaturePin, INPUT);
+  pinMode(BEC_TemperaturePin, INPUT);
+  pinMode(protectionDiode_TemperaturePin, INPUT);
 }
 
 void loop() {
   // check RPM every second
   // RPM_counter = 200 = 12000 RPM
-  if (millis() >= RPM_timer + 1000) {   
+  if (millis() >= RPM_timer + GOV_timing_us) {
     detachInterrupt(digitalPinToInterrupt(RPM_pin));
-    int finalRPM = (RPM_counter / ((float)(millis() - RPM_timer) / 1000)) * 60;
-    PID_input = RPM_counter;
-    Serial.print("Final RPM Calculation = ");
-    Serial.println(finalRPM);
+    int currentRPM = (RPM_counter / ((float)(millis() - RPM_timer) / 1000)) * 60;
+    Serial.print("Current RPM Calculation = "); Serial.println(currentRPM);
     
-    // PID Calculation
-    myPID.Compute();
-    PID_mappedOutput = map(PID_output, 0, 255, 1000, 2000);
-    Serial.print("PID_output = ");
-    Serial.println(PID_output);
-    Serial.print("PID_input = ");
-    Serial.println(PID_input);
-    Serial.print("PID_mappedOutput = ");
-    Serial.println(PID_mappedOutput);
-    ESC_Control.ESC_set_us(PID_mappedOutput);
+    // Governer Checks and new us calculations
+    if (abs(GOV_RPM - currentRPM) > 500) {
+      ESC_us = ESC_us + int((GOV_RPM - currentRPM) * GOV_factor);
+    }
     
+    // Set the ESC PWM to the new us calculated 
+    ESC_Control.ESC_set_us(ESC_us);
+
+    // Get the temperatures
+    rectifier_Temperature = analogReadMilliVolts(rectifier_TemperaturePin) / 10;
+    Serial.printf("    Rectifier Temperature = %dc \n", rectifier_Temperature);
+    BEC_Temperature = analogReadMilliVolts(BEC_TemperaturePin) / 10;
+    Serial.printf("          BEC Temperature = %dc \n", BEC_Temperature);
+    protectionDiode_Temperature = analogReadMilliVolts(protectionDiode_TemperaturePin) / 10;
+    Serial.printf("Protect Diode Temperature = %dc \n", protectionDiode_Temperature);
+    Serial.println();
+    
+    // Reset for the next loop
     RPM_timer = millis();
     RPM_counter = 0;
     attachInterrupt(digitalPinToInterrupt(RPM_pin), RPM_ISR, RISING);
