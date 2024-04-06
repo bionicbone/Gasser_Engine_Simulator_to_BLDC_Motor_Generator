@@ -14,10 +14,12 @@ int RPM_counter = 0;
 unsigned long RPM_timer = 0;
 
 // Governer Setting
-int ESC_us = 1120;        // Spin up value, often to first 100us does nothing
-float GOV_factor = 0.004; // Used to control the us increases
-int GOV_timing_us = 500;  // us between RPM checks and governer changes
-int GOV_RPM = 12000;      // The desired RPM
+int ESC_us = 1120;            // Spin up value, often to first 100us does nothing
+float GOV_factor = 0.004;     // Used to control the us increases
+int GOV_timing_us = 500;      // us between RPM checks and governer changes
+int GOV_RPM = 12000;          // The desired RPM
+byte GOV_RPM_Zero_Count = 0;  // Safety, if RPM sensor fails this will stop the motor
+bool GOV_Fail = false;        // True if we should skip motor driving signals
 
 // Tempertures
 const byte rectifier_TemperaturePin = 34;
@@ -40,7 +42,7 @@ void setup() {
   // Pause to allow the ESC to activate (MUST BE CALIBRATED !!)
   ESC_Control.ESC_set_us(1000);
   Serial.println("Pause for ESC Activation...");
-  vTaskDelay(2000);
+  vTaskDelay(5000);
 
  // Uncomment to Calibrate ESC to ESP32_ESC_HIGH_RESOLUTION_DRIVER outputs
  // then follow instructions on Serial output 
@@ -69,13 +71,17 @@ void loop() {
     int currentRPM = (RPM_counter / ((float)(millis() - RPM_timer) / 1000)) * 60;
     Serial.print("Current RPM Calculation = "); Serial.println(currentRPM);
     
-    // Governer Checks and new us calculations
-    if (abs(GOV_RPM - currentRPM) > 500) {
-      ESC_us = ESC_us + int((GOV_RPM - currentRPM) * GOV_factor);
+    // Only update motor if RPM is in a good state
+    if (GOV_Fail == false) {
+
+      // Governer Checks and new us calculations
+      if (abs(GOV_RPM - currentRPM) > 250) {
+        ESC_us = ESC_us + int((GOV_RPM - currentRPM) * GOV_factor);
+      }
+
+      // Set the ESC PWM to the new us calculated 
+      ESC_Control.ESC_set_us(ESC_us);
     }
-    
-    // Set the ESC PWM to the new us calculated 
-    ESC_Control.ESC_set_us(ESC_us);
 
     // Get the temperatures
     rectifier_Temperature = analogReadMilliVolts(rectifier_TemperaturePin) / 10;
@@ -85,6 +91,21 @@ void loop() {
     protectionDiode_Temperature = analogReadMilliVolts(protectionDiode_TemperaturePin) / 10;
     Serial.printf("Protect Diode Temperature = %dc \n", protectionDiode_Temperature);
     Serial.println();
+    
+    // RPM saftey checks
+    if (currentRPM == 0) {
+      GOV_RPM_Zero_Count++;
+      if (GOV_RPM_Zero_Count >= 5) {
+        ESC_Control.ESC_set_us(1000);
+        Serial.println("RPM Sensor Failure, Emergancy STOP !");
+        GOV_Fail = true; // signal no more motor updates
+      }
+    }
+    if (currentRPM >= 16000) {
+      ESC_Control.ESC_set_us(1000);
+      Serial.println("RPM Too High Failure, Emergancy STOP !");
+      GOV_Fail = true; // signal no more motor updates
+    }
     
     // Reset for the next loop
     RPM_timer = millis();
