@@ -17,7 +17,7 @@ unsigned long RPM_timer = 0;
 int ESC_us = 1120;            // Spin up value, often to first 100us does nothing
 float GOV_factor = 0.004;     // Used to control the us increases
 int GOV_timing_us = 500;      // us between RPM checks and governer changes
-int GOV_RPM = 12000;          // The desired RPM
+int GOV_RPM = 4000;          // The desired RPM
 byte GOV_RPM_Zero_Count = 0;  // Safety, if RPM sensor fails this will stop the motor
 bool GOV_Fail = false;        // True if we should skip motor driving signals
 
@@ -28,6 +28,10 @@ const byte protectionDiode_TemperaturePin = 32;
 byte rectifier_Temperature = 0;
 byte BEC_Temperature = 0;
 byte protectionDiode_Temperature = 0;
+
+// Serial Commands
+int availableBytes = 0;
+char string[10];
 
 void setup() {
   Serial.begin(115200);
@@ -106,8 +110,38 @@ void loop() {
       Serial.println("RPM Too High Failure, Emergancy STOP !");
       GOV_Fail = true; // signal no more motor updates
     }
+
+    // Check Serial Comms to see if user wants to change the RPM
+    availableBytes = Serial.available();
+    for (int i = 0; i < availableBytes; i++) {
+      string[i] = Serial.read();
+    }
+
+    // parse the serial data
+    if (availableBytes) {
+      String str = string;
+      str.trim();
+      Serial.printf("Serial Data Received: %s \n", str);
+      // ensure its a valid command
+      if (str.substring(0, 4) == "RPM=") {
+        Serial.print("Set RPM=");
+        bool checkNumber = true;
+        for (int i = 5; i < str.length(); i++) {
+          if (!isdigit(string[i])) checkNumber = false;
+        }
+        if (checkNumber == true) {
+          GOV_RPM = str.substring(4, str.length()).toInt();
+          Serial.println(GOV_RPM);
+        }
+        else {
+          Serial.println("NAN");
+        }
+      }
+    }
+    
     
     // Reset for the next loop
+    availableBytes = 0;
     RPM_timer = millis();
     RPM_counter = 0;
     attachInterrupt(digitalPinToInterrupt(RPM_pin), RPM_ISR, RISING);
